@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>下水道取付管 AR表示システム</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div class="main-container">
+    <h1 class="main-title">下水道取付管 AR表示</h1>
+    <p class="main-subtitle">埋設配管の可視化・掘削計画支援ツール</p>
+
+    <div class="menu-grid">
+      <!-- AR表示 -->
+      <a href="ar.html" class="menu-card" id="arCard">
+        <div class="icon">📱</div>
+        <div class="label">AR表示</div>
+        <div class="desc">カメラ映像に取付管・掘削領域をAR表示</div>
+      </a>
+
+      <!-- 3D図面ビューア -->
+      <a href="viewer3d.html" class="menu-card">
+        <div class="icon">🗺️</div>
+        <div class="label">3D図面ビューア</div>
+        <div class="desc">埋設配管ルートを3D図面で俯瞰表示</div>
+      </a>
+
+      <!-- QRコードスキャン -->
+      <a href="#" class="menu-card" id="qrCard">
+        <div class="icon">📷</div>
+        <div class="label">QRコードスキャン</div>
+        <div class="desc">QRコードから配管データを読込んでAR表示</div>
+      </a>
+    </div>
+
+    <!-- サンプルQRコード表示エリア -->
+    <div id="sampleQR" style="margin-top: 32px; text-align: center; display: none;">
+      <p style="color: #888; font-size: 13px; margin-bottom: 8px;">テスト用QRデータ:</p>
+      <code id="sampleQRData" style="
+        display: block;
+        background: rgba(30,30,60,0.8);
+        padding: 12px;
+        border-radius: 8px;
+        font-size: 11px;
+        word-break: break-all;
+        color: #81c784;
+        max-width: 400px;
+        margin: 0 auto;
+      "></code>
+    </div>
+  </div>
+
+  <!-- QRスキャンモーダル -->
+  <div id="qrModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>QRコードスキャン</h3>
+      <div id="qrReader"></div>
+      <p id="qrResult" style="margin: 12px 0; color: #81c784; font-size: 13px;"></p>
+      <button id="btnCloseQR" class="btn-primary">閉じる</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="js/pipe-data.js"></script>
+  <script src="js/qr-handler.js"></script>
+  <script>
+    // QRスキャンカードのクリック
+    document.getElementById('qrCard').addEventListener('click', async (e) => {
+      e.preventDefault();
+      const modal = document.getElementById('qrModal');
+      modal.style.display = 'flex';
+
+      QRHandler.init('qrReader', (data) => {
+        if (data.raw) {
+          document.getElementById('qrResult').textContent = '読取: ' + data.raw;
+        } else {
+          // パイプデータが読み取れた → AR画面へ遷移
+          const qrStr = QRDataCodec.encode(data.id, { pipes: [data], excavation: data.excavation });
+          window.location.href = `ar.html?qr=${encodeURIComponent(qrStr)}`;
+        }
+      });
+
+      try {
+        await QRHandler.startScan();
+      } catch (err) {
+        document.getElementById('qrResult').textContent = 'カメラアクセスエラー: ' + err.message;
+      }
+    });
+
+    // モーダル閉じる
+    document.getElementById('btnCloseQR').addEventListener('click', async () => {
+      await QRHandler.stopScan();
+      document.getElementById('qrModal').style.display = 'none';
+    });
+
+    // サンプルQRデータの表示
+    const sampleData = QRHandler.generateSampleQR();
+    if (sampleData) {
+      document.getElementById('sampleQRData').textContent = sampleData;
+      document.getElementById('sampleQR').style.display = 'block';
+    }
+
+    // AR対応チェック
+    if (navigator.xr) {
+      navigator.xr.isSessionSupported('immersive-ar').then(supported => {
+        if (!supported) {
+          const arCard = document.getElementById('arCard');
+          arCard.querySelector('.desc').textContent =
+            'AR非対応環境です（3Dプレビューモードで動作します）';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR表示 - 下水道取付管</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- AR Canvas -->
+  <canvas id="arCanvas"></canvas>
+
+  <!-- AR UI Overlay -->
+  <div id="arUI">
+    <!-- 上部情報バー -->
+    <div id="topBar">
+      <a href="index.html" class="btn-back">&larr; 戻る</a>
+      <span id="statusText">初期化中...</span>
+      <button id="btnGyroPermission" class="btn-tool" style="display:none;font-size:12px;padding:4px 10px;">ジャイロON</button>
+    </div>
+
+    <!-- パイプ情報パネル -->
+    <div id="pipeInfo" class="panel" style="display:none;">
+      <h3 id="pipeName">取付管 L-001</h3>
+      <div class="info-grid">
+        <span>管径:</span><span id="infoDiameter">φ150mm</span>
+        <span>延長:</span><span id="infoLength">5,000mm</span>
+        <span>深さ:</span><span id="infoDepth">1,200mm</span>
+        <span>勾配:</span><span id="infoSlope">1.5%</span>
+        <span>管種:</span><span id="infoMaterial">VU</span>
+      </div>
+    </div>
+
+    <!-- 掘削パラメータパネル -->
+    <div id="excavationPanel" class="panel" style="display:none;">
+      <h3>掘削パラメータ</h3>
+      <div class="param-row">
+        <label>幅: <span id="excWidth">800</span>mm</label>
+        <input type="range" id="excWidthSlider" min="400" max="3000" value="800" step="50">
+      </div>
+      <div class="param-row">
+        <label>深さ: <span id="excDepth">1500</span>mm</label>
+        <input type="range" id="excDepthSlider" min="500" max="5000" value="1500" step="50">
+      </div>
+      <div class="param-row">
+        <label>前方延長: <span id="excLengthFront">3000</span>mm</label>
+        <input type="range" id="excLengthFrontSlider" min="500" max="10000" value="3000" step="100">
+      </div>
+      <div class="param-row">
+        <label>後方延長: <span id="excLengthBack">3000</span>mm</label>
+        <input type="range" id="excLengthBackSlider" min="500" max="10000" value="3000" step="100">
+      </div>
+      <div class="param-row">
+        <span id="excVolume">掘削量: 7.20 m&sup3;</span>
+        <span id="excLengthTotal" style="margin-left:12px;font-size:12px;color:#888;">総延長: 6000mm</span>
+      </div>
+    </div>
+
+    <!-- 右パネル（データ読込・回転・移動） -->
+    <div id="rightPanel">
+      <div id="arDataPanel" class="panel" style="display:flex;flex-direction:column;gap:4px;">
+        <label class="btn-small" style="cursor:pointer;">
+          3Dモデル/データ読込
+          <input type="file" id="arFileInput" accept=".json,.glb,.gltf,.fbx,.stl,.obj" style="display:none;">
+        </label>
+        <button id="btnSampleModel" class="btn-small">サンプル3Dモデル</button>
+        <span class="file-hint">JSON/GLB/FBX/STL/OBJ</span>
+      </div>
+      <div id="rotationControl" class="panel" style="display:none;">
+        <label>回転角度: <span id="rotationValue">0</span>&deg;</label>
+        <input type="range" id="rotationSlider" min="0" max="360" value="0" step="1">
+      </div>
+      <div id="distanceControl" class="panel" style="display:none;">
+        <label>前後移動: <span id="distanceValue">0</span>mm</label>
+        <input type="range" id="distanceSlider" min="-5000" max="5000" value="0" step="100">
+      </div>
+    </div>
+
+    <!-- AR開始オーバーレイ（WebXR対応時に表示） -->
+    <div id="arStartOverlay" style="display:none;">
+      <div class="ar-start-content">
+        <div class="ar-start-icon">AR</div>
+        <p>WebXR ARが利用可能です</p>
+        <button id="btnStartAR" class="btn-primary btn-ar-start">AR開始</button>
+        <button id="btnSkipAR" class="btn-small" style="margin-top:12px;">カメラモードで続行</button>
+      </div>
+    </div>
+
+    <!-- 下部ツールバー -->
+    <div id="bottomBar">
+      <button id="btnPlace" class="btn-tool" disabled>設置</button>
+      <button id="btnPipeInfo" class="btn-tool">管情報</button>
+      <button id="btnExcavation" class="btn-tool">掘削表示</button>
+      <button id="btnScreenshot" class="btn-tool">📷</button>
+      <button id="btnReset" class="btn-tool">リセット</button>
+    </div>
+  </div>
+
+  <!-- QRスキャンモーダル -->
+  <div id="qrModal" class="modal" style="display:none;">
+    <div class="modal-content">
+      <h3>QRコードスキャン</h3>
+      <div id="qrReader"></div>
+      <button id="btnCloseQR" class="btn-primary">閉じる</button>
+    </div>
+  </div>
+
+  <!-- Non-AR fallback message -->
+  <div id="noARMessage" style="display:none;">
+    <div class="message-box">
+      <h2>WebXR非対応</h2>
+      <p>このブラウザはWebXR ARに対応していません。</p>
+      <p>Android Chrome で開いてください。</p>
+      <p>代わりに3Dビューアモードで動作します。</p>
+      <a href="viewer3d.html" class="btn-primary">3Dビューアを開く</a>
+      <br><br>
+      <button id="btnFallback3D" class="btn-primary">このページで3D表示</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/STLLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/OBJLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/libs/fflate.min.js"></script>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="js/pipe-data.js"></script>
+  <script src="js/pipe-model.js"></script>
+  <script src="js/excavation.js"></script>
+  <script src="js/qr-handler.js"></script>
+  <script src="js/sample-model.js"></script>
+  <script src="js/ar-app.js"></script>
+</body>
+</html>
