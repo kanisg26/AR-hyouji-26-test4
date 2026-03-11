@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D図面ビューア - 埋設配管ルート</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="viewer3dCanvas"></canvas>
+
+  <div id="viewerUI">
+    <!-- 上部バー -->
+    <div id="topBar">
+      <a href="index.html" class="btn-back">← 戻る</a>
+      <span id="projectName">サンプル下水道工事</span>
+    </div>
+
+    <!-- 管路情報パネル -->
+    <div id="selectedPipeInfo" class="panel" style="display:none;">
+      <h3 id="selPipeName">-</h3>
+      <div class="info-grid">
+        <span>管径:</span><span id="selDiameter">-</span>
+        <span>延長:</span><span id="selLength">-</span>
+        <span>深さ:</span><span id="selDepth">-</span>
+        <span>勾配:</span><span id="selSlope">-</span>
+        <span>管種:</span><span id="selMaterial">-</span>
+      </div>
+      <button id="btnOpenAR" class="btn-primary" style="margin-top:8px;">ARで表示</button>
+    </div>
+
+    <!-- データ読込パネル -->
+    <div id="dataLoadPanel" class="panel">
+      <label class="btn-file">
+        3Dモデル読込
+        <input type="file" id="fileInput" accept=".json,.glb,.gltf,.fbx,.stl,.obj" style="display:none;">
+      </label>
+      <span class="file-hint">JSON / GLB / FBX / STL / OBJ</span>
+      <button id="btnSampleData" class="btn-small">サンプルに戻す</button>
+      <a id="btnExportJSON" class="btn-small" href="#" download="pipe-data.json">現在のデータを保存</a>
+    </div>
+
+    <!-- 表示コントロール -->
+    <div id="viewControls" class="panel">
+      <label><input type="checkbox" id="chkGround" checked> 地表面</label>
+      <label><input type="checkbox" id="chkDimensions" checked> 寸法線</label>
+      <label><input type="checkbox" id="chkExcavation"> 掘削領域</label>
+      <label><input type="checkbox" id="chkSection"> 断面表示</label>
+    </div>
+
+    <!-- 視点ボタン -->
+    <div id="viewButtons">
+      <button class="btn-view" data-view="top">上面</button>
+      <button class="btn-view" data-view="front">正面</button>
+      <button class="btn-view" data-view="side">側面</button>
+      <button class="btn-view" data-view="perspective" style="font-weight:bold;">3D</button>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/three@0.147.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/GLTFLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/FBXLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/STLLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/loaders/OBJLoader.js"></script>
+  <script src="https://unpkg.com/three@0.147.0/examples/js/libs/fflate.min.js"></script>
+  <script src="js/pipe-data.js"></script>
+  <script src="js/pipe-model.js"></script>
+  <script src="js/excavation.js"></script>
+  <script src="js/viewer3d-app.js"></script>
+</body>
+</html>
