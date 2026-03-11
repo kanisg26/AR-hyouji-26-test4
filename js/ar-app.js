@@ -176,6 +176,11 @@
 
   async function restartARSession() {
     hideRestartARButton();
+
+    // 読込済みモデル参照を保存（AR再開後も使えるように）
+    const savedModel = loaded3DModel;
+    const savedPipeData = currentPipeData;
+
     // フォールバックモードのクリーンアップ
     fallbackMode = false;
     fallbackAnimateRunning = false;
@@ -193,38 +198,34 @@
       groundGrid = null;
     }
 
-    // 設置済みモデルの位置・回転を保存
-    const savedModel = loaded3DModel;
-    const savedPipeData = currentPipeData;
-    let savedPos = null, savedRot = 0;
-    if (pipePlaced && pipeGroup) {
-      savedPos = pipeGroup.position.clone();
-      savedRot = pipeGroup.rotation.y;
-    }
-
-    // 既存のパイプ・掘削をクリア（ARセッション内で再設置するため）
+    // 既存のパイプ・掘削・マーカーをクリア
     if (pipeGroup) { scene.remove(pipeGroup); pipeGroup = null; }
     if (excavationGroup) { scene.remove(excavationGroup); excavationGroup = null; }
     placedMarkers.forEach(m => scene.remove(m));
     placedMarkers = [];
     pipePlaced = false;
+    placedPosition = null;
 
-    // WebXRセッションを再開始
+    // モデル参照を復元（クリアされないように）
+    loaded3DModel = savedModel;
+    currentPipeData = savedPipeData;
+
+    // UI をリセット（設置前の状態に戻す）
+    pipeInfo.style.display = 'none';
+    rotationControl.style.display = 'none';
+    distanceControl.style.display = 'none';
+    excavationPanel.style.display = 'none';
+    btnPlace.disabled = false;
+    document.getElementById('rotationSlider').value = 0;
+    document.getElementById('rotationValue').textContent = '0';
+    document.getElementById('distanceSlider').value = 0;
+    document.getElementById('distanceValue').textContent = '0';
+
+    // WebXRセッションを再開始（ユーザーがhit testで設置位置を決定）
     statusText.textContent = 'AR再開中...平面を検出しています';
     try {
       await startARSession();
-      // モデルが読込済みなら自動設置
-      if (savedModel) {
-        loaded3DModel = savedModel;
-        currentPipeData = savedPipeData;
-        // 短い遅延後に自動設置（平面検出を待つ）
-        setTimeout(() => {
-          const pos = savedPos || new THREE.Vector3(0, 0, -2);
-          placePipe(pos);
-          if (savedRot) pipeGroup.rotation.y = savedRot;
-          if (excavationGroup) excavationGroup.rotation.y = savedRot;
-        }, 1500);
-      }
+      // ★ 自動設置しない — ユーザーが平面をタップして設置位置を決定
     } catch (err) {
       console.error('AR restart failed:', err);
       statusText.textContent = 'AR再開失敗 → カメラモードに切替中...';
@@ -1397,12 +1398,17 @@
     }
 
     // リサイズ
-    function handleResize() {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
-    }
     window.addEventListener('resize', handleResize);
+  }
+
+  // =========================================================
+  //  Resize Handler（IIFE直下スコープ — orientationchangeからも参照）
+  // =========================================================
+  function handleResize() {
+    if (!camera || !renderer) return;
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
   }
 
   // =========================================================
