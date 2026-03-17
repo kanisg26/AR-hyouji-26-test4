@@ -265,6 +265,12 @@
       // ★ ユーザージェスチャー（タップ）内で呼ばれるため成功する
       xrSession = await navigator.xr.requestSession('immersive-ar', sessionOptions);
 
+      // ★ XRセッション中はファイル入力を無効化
+      // ファイルダイアログによるXRセッション異常終了を防止
+      // （異常終了するとChromeがタッチイベントを復旧しなくなる）
+      var fi = document.getElementById('arFileInput');
+      if (fi) fi.disabled = true;
+
       renderer.xr.setReferenceSpaceType('local');
       await renderer.xr.setSession(xrSession);
 
@@ -301,6 +307,9 @@
         }
         // ★ XR→フォールバック遷移後の対策
         canvas.style.pointerEvents = 'none';
+        // ファイル入力を再有効化
+        var fi = document.getElementById('arFileInput');
+        if (fi) fi.disabled = false;
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
@@ -1567,27 +1576,6 @@
     // ファイル読込
     const arFileInput = document.getElementById('arFileInput');
     if (arFileInput) {
-      // ★ WebXR ARモード中のファイル選択対策
-      // ファイルダイアログがXRセッションを異常終了させると、
-      // Chromeの内部タッチイベントルーティングが復旧しなくなる。
-      // 対策: XRセッションを先に正常終了させてからダイアログを開く。
-      var arFileLabel = arFileInput.parentElement;
-      if (arFileLabel) {
-        arFileLabel.addEventListener('click', function(e) {
-          if (xrSession) {
-            e.preventDefault(); // ファイルダイアログを抑制
-            e.stopPropagation();
-            xrSession.end().then(function() {
-              // セッション正常終了後にファイルダイアログを開く
-              setTimeout(function() {
-                arFileInput.click();
-              }, 300);
-            });
-          }
-          // XRセッションがない場合はデフォルト動作（ダイアログが開く）
-        });
-      }
-
       arFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) loadARFile(file);
