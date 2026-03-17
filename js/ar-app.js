@@ -299,23 +299,8 @@
           statusText.textContent = 'ARセッション終了 → カメラモードに切替中...';
           startFallbackMode();
         }
-        // ★ dom-overlay解除後の対策
+        // ★ XR→フォールバック遷移後の対策
         canvas.style.pointerEvents = 'none';
-
-        // === DEBUG: タッチイベント到達診断 ===
-        // 画面タッチで赤い丸が出る → イベントはdocumentまで到達している
-        // 赤い丸が出ない → Chromeがイベント自体を抑制している
-        document.addEventListener('touchstart', function debugTouch(e) {
-          var dot = document.createElement('div');
-          dot.style.cssText = 'position:fixed;width:30px;height:30px;background:red;border-radius:50%;z-index:99999;pointer-events:none;opacity:0.8;';
-          dot.style.left = (e.touches[0].clientX - 15) + 'px';
-          dot.style.top = (e.touches[0].clientY - 15) + 'px';
-          document.body.appendChild(dot);
-          // タッチ対象のタグ名とIDをステータスに表示
-          statusText.textContent = 'TOUCH: ' + e.target.tagName + (e.target.id ? '#' + e.target.id : '') + (e.target.className ? '.' + e.target.className.split(' ')[0] : '');
-          setTimeout(function() { dot.remove(); }, 2000);
-        }, true);
-        // === END DEBUG ===
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
@@ -1582,6 +1567,27 @@
     // ファイル読込
     const arFileInput = document.getElementById('arFileInput');
     if (arFileInput) {
+      // ★ WebXR ARモード中のファイル選択対策
+      // ファイルダイアログがXRセッションを異常終了させると、
+      // Chromeの内部タッチイベントルーティングが復旧しなくなる。
+      // 対策: XRセッションを先に正常終了させてからダイアログを開く。
+      var arFileLabel = arFileInput.parentElement;
+      if (arFileLabel) {
+        arFileLabel.addEventListener('click', function(e) {
+          if (xrSession) {
+            e.preventDefault(); // ファイルダイアログを抑制
+            e.stopPropagation();
+            xrSession.end().then(function() {
+              // セッション正常終了後にファイルダイアログを開く
+              setTimeout(function() {
+                arFileInput.click();
+              }, 300);
+            });
+          }
+          // XRセッションがない場合はデフォルト動作（ダイアログが開く）
+        });
+      }
+
       arFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) loadARFile(file);
