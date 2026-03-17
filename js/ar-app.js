@@ -1601,6 +1601,25 @@
         });
       }
 
+      // ★ ファイルダイアログ復帰後のタッチイベント復旧
+      // Android Chromeでファイルダイアログ（OS UI）から戻ると、
+      // body の touch-action:none 下でタッチイベントが失われることがある。
+      // touch-action を一時的にリセットしてコンポジターを再初期化する。
+      var pendingDialogRecovery = false;
+      arFileInput.addEventListener('click', function() {
+        pendingDialogRecovery = true;
+      });
+      window.addEventListener('focus', function() {
+        if (pendingDialogRecovery) {
+          pendingDialogRecovery = false;
+          document.body.style.touchAction = 'auto';
+          void document.body.offsetHeight; // 強制リフロー
+          setTimeout(function() {
+            document.body.style.touchAction = 'none';
+          }, 100);
+        }
+      });
+
       arFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) loadARFile(file);
