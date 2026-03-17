@@ -293,6 +293,14 @@
           statusText.textContent = 'ARセッション終了 → カメラモードに切替中...';
           startFallbackMode();
         }
+        // ★ dom-overlay解除後のUI応答性を確保
+        var arUI = document.getElementById('arUI');
+        if (arUI) {
+          arUI.style.pointerEvents = 'auto';
+          requestAnimationFrame(function() {
+            arUI.style.pointerEvents = 'none';
+          });
+        }
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
@@ -741,7 +749,7 @@
           if (!groundGrid) {
             groundGrid = new THREE.GridHelper(10, 10, 0x004444, 0x003333);
             groundGrid.material.transparent = true;
-            groundGrid.material.opacity = 0.15;
+            groundGrid.material.opacity = 0.3;
             groundGrid.material.depthWrite = false;
             scene.add(groundGrid);
           }
@@ -898,7 +906,7 @@
     if (!groundGrid) {
       groundGrid = new THREE.GridHelper(10, 10, 0x004444, 0x003333);
       groundGrid.material.transparent = true;
-      groundGrid.material.opacity = 0.15;
+      groundGrid.material.opacity = 0.3;
       groundGrid.material.depthWrite = false;
       scene.add(groundGrid);
     }
