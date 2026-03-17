@@ -299,10 +299,24 @@
           statusText.textContent = 'ARセッション終了 → カメラモードに切替中...';
           startFallbackMode();
         }
-        // ★ GPUコンポジターレイヤー問題対策
-        // WebXR終了後もcanvasがハードウェアレイヤーで最前面に残り
-        // CSSのz-indexを無視してタッチイベントを吸収するのを防止
+        // ★ dom-overlay解除後のタッチイベント復旧
+        // WebXR dom-overlayはarUIを特殊コンポジティングレイヤーに配置する。
+        // セッション終了後にこの内部状態がクリーンアップされず、
+        // arUIが見た目は正常だがタッチイベントを受け取れなくなる場合がある。
+        // DOMから一旦取り外して再挿入し、ブラウザに再計算を強制する。
         canvas.style.pointerEvents = 'none';
+        var arUIEl = document.getElementById('arUI');
+        if (arUIEl) {
+          var parentEl = arUIEl.parentNode;
+          var nextEl = arUIEl.nextSibling;
+          parentEl.removeChild(arUIEl);
+          void document.body.offsetHeight; // 強制リフロー
+          if (nextEl) {
+            parentEl.insertBefore(arUIEl, nextEl);
+          } else {
+            parentEl.appendChild(arUIEl);
+          }
+        }
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
