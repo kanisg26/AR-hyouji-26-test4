@@ -69,12 +69,6 @@
   const noARMessage = document.getElementById('noARMessage');
   const arStartOverlay = document.getElementById('arStartOverlay');
 
-  // --- UI Element Detection（document-levelイベントのフィルタ用）---
-  function isUIElement(el) {
-    if (!el) return false;
-    return !!el.closest('#arUI, #arStartOverlay, #noARMessage, #qrModal');
-  }
-
   // =========================================================
   //  Initialize
   // =========================================================
@@ -265,11 +259,6 @@
       // ★ ユーザージェスチャー（タップ）内で呼ばれるため成功する
       xrSession = await navigator.xr.requestSession('immersive-ar', sessionOptions);
 
-      // ★ XRセッション中はファイル入力を無効化
-      // ファイルダイアログによるXRセッション異常終了を防止
-      // （異常終了するとChromeがタッチイベントを復旧しなくなる）
-      var fi = document.getElementById('arFileInput');
-      if (fi) fi.disabled = true;
 
       renderer.xr.setReferenceSpaceType('local');
       await renderer.xr.setSession(xrSession);
@@ -305,11 +294,6 @@
           statusText.textContent = 'ARセッション終了 → カメラモードに切替中...';
           startFallbackMode();
         }
-        // ★ XR→フォールバック遷移後の対策
-        canvas.style.pointerEvents = 'none';
-        // ファイル入力を再有効化
-        var fi = document.getElementById('arFileInput');
-        if (fi) fi.disabled = false;
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
@@ -648,11 +632,7 @@
     }
 
     // ポインター操作（回転 + 右クリックパン）
-    // ★ document-level登録: canvasがpointer-events:noneでもイベントを捕捉
-    //   （WebXR→フォールバック遷移後のGPUレイヤー問題を回避）
-    //   pointerdownのみisUIElementガード。move/upはドラッグ中の追従を保証
-    document.addEventListener('pointerdown', e => {
-      if (isUIElement(e.target)) return;
+    canvas.addEventListener('pointerdown', e => {
       if (useDeviceOrientation) return;
       // 右クリック or 2本指 → パン
       if (e.button === 2) {
@@ -670,7 +650,7 @@
       startY = e.clientY;
     });
 
-    document.addEventListener('pointermove', e => {
+    canvas.addEventListener('pointermove', e => {
       if (useDeviceOrientation) return;
       if (isPanning) {
         const dx = (e.clientX - panStartX) * 0.01;
@@ -695,22 +675,18 @@
       updateCameraPos();
     });
 
-    document.addEventListener('pointerup', () => { isDragging = false; isPanning = false; });
-    document.addEventListener('contextmenu', e => {
-      if (!isUIElement(e.target)) e.preventDefault();
-    });
+    canvas.addEventListener('pointerup', () => { isDragging = false; isPanning = false; });
+    canvas.addEventListener('contextmenu', e => e.preventDefault());
 
     // ホイールズーム
-    document.addEventListener('wheel', e => {
-      if (isUIElement(e.target)) return;
+    canvas.addEventListener('wheel', e => {
       if (useDeviceOrientation) return;
       cameraDistance = Math.max(0.5, Math.min(30, cameraDistance + e.deltaY * 0.01));
       updateCameraPos();
     });
 
     // ピンチズーム（タッチ）
-    document.addEventListener('touchstart', e => {
-      if (isUIElement(e.target)) return;
+    canvas.addEventListener('touchstart', e => {
       if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -718,7 +694,7 @@
       }
     }, { passive: true });
 
-    document.addEventListener('touchmove', e => {
+    canvas.addEventListener('touchmove', e => {
       if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -738,7 +714,7 @@
       }
     }, { passive: true });
 
-    document.addEventListener('touchend', () => { lastPinchDist = 0; }, { passive: true });
+    canvas.addEventListener('touchend', () => { lastPinchDist = 0; }, { passive: true });
 
     if (!useDeviceOrientation) {
       updateCameraPos();
@@ -1563,9 +1539,7 @@
     });
 
     // フォールバック: 画面タップで設置
-    // ★ document-level: canvasがpointer-events:noneでも捕捉
-    document.addEventListener('click', (e) => {
-      if (isUIElement(e.target)) return;
+    canvas.addEventListener('click', (e) => {
       if (!fallbackMode || pipePlaced) return;
       if (!useDeviceOrientation && wasDragged) return;
       if (fallbackReticle) {
@@ -1576,50 +1550,6 @@
     // ファイル読込
     const arFileInput = document.getElementById('arFileInput');
     if (arFileInput) {
-      // ★ XRセッション中のファイル選択: XR正常終了→ダイアログ自動起動
-      // inputはXR中disabled（startARSession参照）なのでダイアログは開かない。
-      // ラベルタップを検知してXRを先に正常終了させる。
-      var arFileLabel = arFileInput.parentElement;
-      if (arFileLabel) {
-        arFileLabel.addEventListener('click', function() {
-          if (xrSession) {
-            statusText.textContent = 'カメラモードに切替中...';
-            xrSession.end(); // 正常終了 → 'end'ハンドラで fallback開始
-            // XR正常終了後にダイアログを自動起動
-            var waitForFallback = setInterval(function() {
-              if (fallbackMode) {
-                clearInterval(waitForFallback);
-                arFileInput.disabled = false;
-                setTimeout(function() {
-                  arFileInput.click();
-                }, 200);
-              }
-            }, 100);
-            // 安全弁: 3秒で諦める
-            setTimeout(function() { clearInterval(waitForFallback); }, 3000);
-          }
-        });
-      }
-
-      // ★ ファイルダイアログ復帰後のタッチイベント復旧
-      // Android Chromeでファイルダイアログ（OS UI）から戻ると、
-      // body の touch-action:none 下でタッチイベントが失われることがある。
-      // touch-action を一時的にリセットしてコンポジターを再初期化する。
-      var pendingDialogRecovery = false;
-      arFileInput.addEventListener('click', function() {
-        pendingDialogRecovery = true;
-      });
-      window.addEventListener('focus', function() {
-        if (pendingDialogRecovery) {
-          pendingDialogRecovery = false;
-          document.body.style.touchAction = 'auto';
-          void document.body.offsetHeight; // 強制リフロー
-          setTimeout(function() {
-            document.body.style.touchAction = 'none';
-          }, 100);
-        }
-      });
-
       arFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) loadARFile(file);
