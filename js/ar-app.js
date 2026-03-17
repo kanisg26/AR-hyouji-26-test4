@@ -1314,6 +1314,16 @@
       const maxDim = Math.max(size.x, size.y, size.z);
       modelRawMaxDim = maxDim;
 
+      console.log('[ScaleMode Debug] Raw BoundingBox:', {
+        sizeX: size.x.toFixed(2),
+        sizeY: size.y.toFixed(2),
+        sizeZ: size.z.toFixed(2),
+        maxDim: maxDim.toFixed(2),
+        centerX: center.x.toFixed(2),
+        centerY: center.y.toFixed(2),
+        centerZ: center.z.toFixed(2),
+      });
+
       if (maxDim > 100) {
         // ★ mm単位と推定 → m変換（÷1000）
         model.scale.multiplyScalar(0.001);
@@ -1322,6 +1332,14 @@
         box.getSize(size);
         modelWasAutoRealsize = true;
         console.log('Auto unit detection: mm → m (maxDim=' + maxDim.toFixed(1) + ')');
+        console.log('[ScaleMode Debug] After ÷1000:', {
+          sizeX: size.x.toFixed(3),
+          sizeY: size.y.toFixed(3),
+          sizeZ: size.z.toFixed(3),
+          scaleX: model.scale.x,
+          scaleY: model.scale.y,
+          scaleZ: model.scale.z,
+        });
       } else {
         // 従来のオートスケーリング
         modelWasAutoRealsize = false;
@@ -1339,6 +1357,12 @@
 
       model.position.sub(center);
       model.position.y -= size.y / 2;
+
+      console.log('[ScaleMode Debug] Final position:', {
+        posX: model.position.x.toFixed(3),
+        posY: model.position.y.toFixed(3),
+        posZ: model.position.z.toFixed(3),
+      });
 
       // スケールモードの状態を更新
       scaleMode = modelWasAutoRealsize ? 'realsize' : 'fit';
@@ -1681,10 +1705,9 @@
       const overlayFileStatus = document.getElementById('overlayFileStatus');
       if (overlayFileStatus) overlayFileStatus.textContent = '';
 
-      // スケールモード初期化
-      scaleMode = 'auto';
-      modelRawMaxDim = 0;
-      modelWasAutoRealsize = false;
+      // スケール切替ボタンの非表示（UI上のリセットのみ）
+      // ★ scaleMode, modelRawMaxDim, modelWasAutoRealsize はクリアしない
+      //   loaded3DModelが保持されるため、再設置時にボタンを復帰させる必要がある
       const btnScaleModeEl = document.getElementById('btnScaleMode');
       if (btnScaleModeEl) {
         btnScaleModeEl.style.display = 'none';
