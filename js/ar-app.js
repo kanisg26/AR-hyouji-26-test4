@@ -69,6 +69,12 @@
   const noARMessage = document.getElementById('noARMessage');
   const arStartOverlay = document.getElementById('arStartOverlay');
 
+  // --- UI Element Detection（document-levelイベントのフィルタ用）---
+  function isUIElement(el) {
+    if (!el) return false;
+    return !!el.closest('#arUI, #arStartOverlay, #noARMessage, #qrModal');
+  }
+
   // =========================================================
   //  Initialize
   // =========================================================
@@ -293,17 +299,10 @@
           statusText.textContent = 'ARセッション終了 → カメラモードに切替中...';
           startFallbackMode();
         }
-        // ★ dom-overlay解除後のUI応答性を確保
-        // canvasのz-indexを再設定してarUIの下に確実に配置
-        canvas.style.zIndex = '1';
-        var arUI = document.getElementById('arUI');
-        if (arUI) {
-          // pointer-eventsを一時的にautoにしてブラウザの内部状態をリフレッシュ
-          arUI.style.pointerEvents = 'auto';
-          setTimeout(function() {
-            arUI.style.pointerEvents = 'none'; // 子要素のpointer-events:autoが効く
-          }, 100);
-        }
+        // ★ GPUコンポジターレイヤー問題対策
+        // WebXR終了後もcanvasがハードウェアレイヤーで最前面に残り
+        // CSSのz-indexを無視してタッチイベントを吸収するのを防止
+        canvas.style.pointerEvents = 'none';
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
@@ -642,7 +641,11 @@
     }
 
     // ポインター操作（回転 + 右クリックパン）
-    canvas.addEventListener('pointerdown', e => {
+    // ★ document-level登録: canvasがpointer-events:noneでもイベントを捕捉
+    //   （WebXR→フォールバック遷移後のGPUレイヤー問題を回避）
+    //   pointerdownのみisUIElementガード。move/upはドラッグ中の追従を保証
+    document.addEventListener('pointerdown', e => {
+      if (isUIElement(e.target)) return;
       if (useDeviceOrientation) return;
       // 右クリック or 2本指 → パン
       if (e.button === 2) {
@@ -660,7 +663,7 @@
       startY = e.clientY;
     });
 
-    canvas.addEventListener('pointermove', e => {
+    document.addEventListener('pointermove', e => {
       if (useDeviceOrientation) return;
       if (isPanning) {
         const dx = (e.clientX - panStartX) * 0.01;
@@ -685,18 +688,22 @@
       updateCameraPos();
     });
 
-    canvas.addEventListener('pointerup', () => { isDragging = false; isPanning = false; });
-    canvas.addEventListener('contextmenu', e => e.preventDefault());
+    document.addEventListener('pointerup', () => { isDragging = false; isPanning = false; });
+    document.addEventListener('contextmenu', e => {
+      if (!isUIElement(e.target)) e.preventDefault();
+    });
 
     // ホイールズーム
-    canvas.addEventListener('wheel', e => {
+    document.addEventListener('wheel', e => {
+      if (isUIElement(e.target)) return;
       if (useDeviceOrientation) return;
       cameraDistance = Math.max(0.5, Math.min(30, cameraDistance + e.deltaY * 0.01));
       updateCameraPos();
     });
 
     // ピンチズーム（タッチ）
-    canvas.addEventListener('touchstart', e => {
+    document.addEventListener('touchstart', e => {
+      if (isUIElement(e.target)) return;
       if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -704,7 +711,7 @@
       }
     }, { passive: true });
 
-    canvas.addEventListener('touchmove', e => {
+    document.addEventListener('touchmove', e => {
       if (e.touches.length === 2) {
         const dx = e.touches[0].clientX - e.touches[1].clientX;
         const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -724,7 +731,7 @@
       }
     }, { passive: true });
 
-    canvas.addEventListener('touchend', () => { lastPinchDist = 0; }, { passive: true });
+    document.addEventListener('touchend', () => { lastPinchDist = 0; }, { passive: true });
 
     if (!useDeviceOrientation) {
       updateCameraPos();
@@ -1549,7 +1556,9 @@
     });
 
     // フォールバック: 画面タップで設置
-    canvas.addEventListener('click', (e) => {
+    // ★ document-level: canvasがpointer-events:noneでも捕捉
+    document.addEventListener('click', (e) => {
+      if (isUIElement(e.target)) return;
       if (!fallbackMode || pipePlaced) return;
       if (!useDeviceOrientation && wasDragged) return;
       if (fallbackReticle) {
