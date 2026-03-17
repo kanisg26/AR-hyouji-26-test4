@@ -22,7 +22,6 @@ canvas {
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 1;        /* arUI(z-index:10)の下に確実に配置 */
 }
 
 /* === Common Components === */
