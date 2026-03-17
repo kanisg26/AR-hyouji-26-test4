@@ -59,7 +59,7 @@
     <!-- 右パネル（データ読込・回転・移動） -->
     <div id="rightPanel">
       <div id="arDataPanel" class="panel" style="display:flex;flex-direction:column;gap:4px;">
-        <label class="btn-small" style="cursor:pointer;">
+        <label id="fileLoadLabel" class="btn-small" style="cursor:pointer;">
           3Dモデル/データ読込
           <input type="file" id="arFileInput" accept=".json,.glb,.gltf,.fbx,.stl,.obj" style="display:none;">
         </label>
@@ -75,6 +75,7 @@
         <input type="range" id="distanceSlider" min="-5000" max="5000" value="0" step="100">
       </div>
       <button id="btnScaleBar" class="btn-secondary" style="display:none;">📏 スケールバー</button>
+      <button id="btnScaleMode" class="btn-secondary" style="display:none;">📐 実寸(mm)</button>
     </div>
 
     <!-- AR開始オーバーレイ（WebXR対応時に表示） -->
@@ -82,6 +83,16 @@
       <div class="ar-start-content">
         <div class="ar-start-icon">AR</div>
         <p>WebXR ARが利用可能です</p>
+
+        <!-- ファイル読込セクション（AR開始前に選択） -->
+        <div id="overlayFileSection" style="margin-bottom: 16px;">
+          <label class="btn-file" style="display:inline-block; margin-bottom:8px;">
+            3Dモデル/データ読込
+            <input type="file" id="overlayFileInput" accept=".glb,.gltf,.fbx,.stl,.obj,.json" hidden>
+          </label>
+          <div id="overlayFileStatus" style="font-size:13px; color:#81c784; min-height:20px;"></div>
+        </div>
+
         <button id="btnStartAR" class="btn-primary btn-ar-start">AR開始</button>
         <button id="btnSkipAR" class="btn-small" style="margin-top:12px;">カメラモードで続行</button>
       </div>
