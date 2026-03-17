@@ -299,24 +299,23 @@
           statusText.textContent = 'ARセッション終了 → カメラモードに切替中...';
           startFallbackMode();
         }
-        // ★ dom-overlay解除後のタッチイベント復旧
-        // WebXR dom-overlayはarUIを特殊コンポジティングレイヤーに配置する。
-        // セッション終了後にこの内部状態がクリーンアップされず、
-        // arUIが見た目は正常だがタッチイベントを受け取れなくなる場合がある。
-        // DOMから一旦取り外して再挿入し、ブラウザに再計算を強制する。
+        // ★ dom-overlay解除後の対策
         canvas.style.pointerEvents = 'none';
-        var arUIEl = document.getElementById('arUI');
-        if (arUIEl) {
-          var parentEl = arUIEl.parentNode;
-          var nextEl = arUIEl.nextSibling;
-          parentEl.removeChild(arUIEl);
-          void document.body.offsetHeight; // 強制リフロー
-          if (nextEl) {
-            parentEl.insertBefore(arUIEl, nextEl);
-          } else {
-            parentEl.appendChild(arUIEl);
-          }
-        }
+
+        // === DEBUG: タッチイベント到達診断 ===
+        // 画面タッチで赤い丸が出る → イベントはdocumentまで到達している
+        // 赤い丸が出ない → Chromeがイベント自体を抑制している
+        document.addEventListener('touchstart', function debugTouch(e) {
+          var dot = document.createElement('div');
+          dot.style.cssText = 'position:fixed;width:30px;height:30px;background:red;border-radius:50%;z-index:99999;pointer-events:none;opacity:0.8;';
+          dot.style.left = (e.touches[0].clientX - 15) + 'px';
+          dot.style.top = (e.touches[0].clientY - 15) + 'px';
+          document.body.appendChild(dot);
+          // タッチ対象のタグ名とIDをステータスに表示
+          statusText.textContent = 'TOUCH: ' + e.target.tagName + (e.target.id ? '#' + e.target.id : '') + (e.target.className ? '.' + e.target.className.split(' ')[0] : '');
+          setTimeout(function() { dot.remove(); }, 2000);
+        }, true);
+        // === END DEBUG ===
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
       });
