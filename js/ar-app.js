@@ -46,6 +46,10 @@
   // --- WebXR capability ---
   let webxrSupported = false;  // WebXR AR対応端末かどうか
 
+  // --- Scale Bar ---
+  let scaleBarGroup = null;
+  let scaleBarVisible = false;
+
   // --- DOM Elements ---
   const canvas = document.getElementById('arCanvas');
   const statusText = document.getElementById('statusText');
@@ -756,6 +760,97 @@
   }
 
   // =========================================================
+  //  Scale Bar（1m基準スケールバー — スケール精度検証用）
+  // =========================================================
+  function createScaleBar() {
+    var group = new THREE.Group();
+
+    // 1mの赤いバー（太さ2cm、高さ1cm、長さ1m）
+    var barGeom = new THREE.BoxGeometry(1.0, 0.01, 0.02);
+    var barMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+    var bar = new THREE.Mesh(barGeom, barMat);
+    bar.position.y = 0.005;
+    group.add(bar);
+
+    // 両端の縦マーク（高さ10cm）
+    var endGeom = new THREE.BoxGeometry(0.005, 0.10, 0.005);
+    var endMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+
+    var leftEnd = new THREE.Mesh(endGeom, endMat);
+    leftEnd.position.set(-0.5, 0.05, 0);
+    group.add(leftEnd);
+
+    var rightEnd = new THREE.Mesh(endGeom, endMat);
+    rightEnd.position.set(0.5, 0.05, 0);
+    group.add(rightEnd);
+
+    // 中央マーク（50cm位置、高さ5cm）
+    var midGeom = new THREE.BoxGeometry(0.005, 0.05, 0.005);
+    var midMat = new THREE.MeshBasicMaterial({ color: 0xffff00 });
+    var midMark = new THREE.Mesh(midGeom, midMat);
+    midMark.position.set(0, 0.025, 0);
+    group.add(midMark);
+
+    // ラベル: 「← 1m →」
+    var label = PipeModelFactory.createTextSprite('\u2190 1m \u2192', 0xff0000);
+    label.position.set(0, 0.15, 0);
+    label.scale.set(0.4, 0.2, 1);
+    group.add(label);
+
+    // 端点ラベル: 「0」「50」「100」
+    var l0 = PipeModelFactory.createTextSprite('0', 0xffffff);
+    l0.position.set(-0.5, 0.12, 0);
+    l0.scale.set(0.2, 0.1, 1);
+    group.add(l0);
+
+    var l50 = PipeModelFactory.createTextSprite('50', 0xffff00);
+    l50.position.set(0, 0.08, 0);
+    l50.scale.set(0.2, 0.1, 1);
+    group.add(l50);
+
+    var l100 = PipeModelFactory.createTextSprite('100', 0xffffff);
+    l100.position.set(0.5, 0.12, 0);
+    l100.scale.set(0.2, 0.1, 1);
+    group.add(l100);
+
+    return group;
+  }
+
+  function toggleScaleBar() {
+    scaleBarVisible = !scaleBarVisible;
+
+    if (scaleBarVisible) {
+      if (!scaleBarGroup) {
+        scaleBarGroup = createScaleBar();
+      }
+      // パイプ設置位置の手前（Z方向+0.7m）に配置
+      if (placedPosition) {
+        scaleBarGroup.position.set(
+          placedPosition.x,
+          placedPosition.y,
+          placedPosition.z + 0.7
+        );
+        // パイプの回転に合わせる
+        if (pipeGroup) {
+          scaleBarGroup.rotation.y = pipeGroup.rotation.y;
+        }
+      }
+      scene.add(scaleBarGroup);
+    } else {
+      if (scaleBarGroup) {
+        scene.remove(scaleBarGroup);
+      }
+    }
+
+    // ボタンのactive状態をトグル
+    var btn = document.getElementById('btnScaleBar');
+    if (btn) {
+      btn.classList.toggle('active', scaleBarVisible);
+      btn.textContent = scaleBarVisible ? '\ud83d\udccf \u30b9\u30b1\u30fc\u30eb\u30d0\u30fc ON' : '\ud83d\udccf \u30b9\u30b1\u30fc\u30eb\u30d0\u30fc';
+    }
+  }
+
+  // =========================================================
   //  Pipe Placement
   // =========================================================
   function placePipe(position) {
@@ -791,6 +886,10 @@
 
     pipePlaced = true;
     placedPosition = position.clone();
+
+    // スケールバーボタンを表示
+    var btnScaleBar = document.getElementById('btnScaleBar');
+    if (btnScaleBar) btnScaleBar.style.display = '';
 
     statusText.textContent = '設置完了 - スライダーで回転・移動';
     pipeInfo.style.display = showPipeInfo ? 'block' : 'none';
@@ -1336,10 +1435,28 @@
       });
     }
 
+    // スケールバーボタン
+    var btnScaleBar = document.getElementById('btnScaleBar');
+    if (btnScaleBar) {
+      btnScaleBar.addEventListener('click', () => {
+        toggleScaleBar();
+      });
+    }
+
     // リセット
     btnReset.addEventListener('click', () => {
       if (pipeGroup) { scene.remove(pipeGroup); pipeGroup = null; }
       if (excavationGroup) { scene.remove(excavationGroup); excavationGroup = null; }
+
+      // スケールバー除去
+      if (scaleBarGroup) { scene.remove(scaleBarGroup); scaleBarGroup = null; }
+      scaleBarVisible = false;
+      var btnScaleBarEl = document.getElementById('btnScaleBar');
+      if (btnScaleBarEl) {
+        btnScaleBarEl.style.display = 'none';
+        btnScaleBarEl.classList.remove('active');
+        btnScaleBarEl.textContent = '\ud83d\udccf \u30b9\u30b1\u30fc\u30eb\u30d0\u30fc';
+      }
 
       placedMarkers.forEach(m => scene.remove(m));
       placedMarkers = [];
