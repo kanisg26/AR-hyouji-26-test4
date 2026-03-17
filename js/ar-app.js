@@ -50,6 +50,9 @@
   let scaleBarGroup = null;
   let scaleBarVisible = false;
 
+  // --- Reset Guard ---
+  let resetGuard = false;
+
   // --- DOM Elements ---
   const canvas = document.getElementById('arCanvas');
   const statusText = document.getElementById('statusText');
@@ -733,6 +736,19 @@
           reticle.matrix.fromArray(pose.transform.matrix);
           statusText.textContent = '緑の円を合わせてタップ';
           btnPlace.disabled = false;
+
+          // グリッドをレティクル位置に追従表示
+          if (!groundGrid) {
+            groundGrid = new THREE.GridHelper(10, 10, 0x004444, 0x003333);
+            groundGrid.material.transparent = true;
+            groundGrid.material.opacity = 0.15;
+            groundGrid.material.depthWrite = false;
+            scene.add(groundGrid);
+          }
+          var reticlePos = new THREE.Vector3();
+          reticlePos.setFromMatrixPosition(reticle.matrix);
+          groundGrid.position.set(reticlePos.x, reticlePos.y, reticlePos.z);
+          groundGrid.visible = true;
         }
       } else {
         reticle.visible = false;
@@ -744,7 +760,7 @@
   }
 
   function onARSelect(event) {
-    if (pipePlaced) return;
+    if (pipePlaced || resetGuard) return;
 
     if (reticle && reticle.visible) {
       const position = new THREE.Vector3();
@@ -877,6 +893,17 @@
     marker.position.y += 0.001;
     scene.add(marker);
     placedMarkers.push(marker);
+
+    // グリッドを設置位置に固定（WebXR/フォールバック共通）
+    if (!groundGrid) {
+      groundGrid = new THREE.GridHelper(10, 10, 0x004444, 0x003333);
+      groundGrid.material.transparent = true;
+      groundGrid.material.opacity = 0.15;
+      groundGrid.material.depthWrite = false;
+      scene.add(groundGrid);
+    }
+    groundGrid.position.set(position.x, position.y, position.z);
+    groundGrid.visible = true;
 
     if (fallbackReticle) {
       const label = fallbackReticle.getObjectByName('reticleLabel');
@@ -1445,8 +1472,18 @@
 
     // リセット
     btnReset.addEventListener('click', () => {
+      // ★ WebXR selectイベントの同時発火を防ぐガード
+      resetGuard = true;
+      setTimeout(() => { resetGuard = false; }, 500);
+
       if (pipeGroup) { scene.remove(pipeGroup); pipeGroup = null; }
       if (excavationGroup) { scene.remove(excavationGroup); excavationGroup = null; }
+
+      // グリッドを除去
+      if (groundGrid) {
+        scene.remove(groundGrid);
+        groundGrid = null;
+      }
 
       // スケールバー除去
       if (scaleBarGroup) { scene.remove(scaleBarGroup); scaleBarGroup = null; }
@@ -1489,6 +1526,11 @@
       }
       fallbackReticle = createFallbackReticle();
       scene.add(fallbackReticle);
+
+      // WebXRモード時: レティクルを再表示可能にする
+      if (reticle) {
+        reticle.visible = false; // 次のヒットテスト結果で自動的にvisible=trueになる
+      }
 
       statusText.textContent = useDeviceOrientation
         ? 'スマホを動かして位置を合わせてタップ'
