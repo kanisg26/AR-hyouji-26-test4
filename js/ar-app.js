@@ -1576,6 +1576,31 @@
     // ファイル読込
     const arFileInput = document.getElementById('arFileInput');
     if (arFileInput) {
+      // ★ XRセッション中のファイル選択: XR正常終了→ダイアログ自動起動
+      // inputはXR中disabled（startARSession参照）なのでダイアログは開かない。
+      // ラベルタップを検知してXRを先に正常終了させる。
+      var arFileLabel = arFileInput.parentElement;
+      if (arFileLabel) {
+        arFileLabel.addEventListener('click', function() {
+          if (xrSession) {
+            statusText.textContent = 'カメラモードに切替中...';
+            xrSession.end(); // 正常終了 → 'end'ハンドラで fallback開始
+            // XR正常終了後にダイアログを自動起動
+            var waitForFallback = setInterval(function() {
+              if (fallbackMode) {
+                clearInterval(waitForFallback);
+                arFileInput.disabled = false;
+                setTimeout(function() {
+                  arFileInput.click();
+                }, 200);
+              }
+            }, 100);
+            // 安全弁: 3秒で諦める
+            setTimeout(function() { clearInterval(waitForFallback); }, 3000);
+          }
+        });
+      }
+
       arFileInput.addEventListener('change', (e) => {
         const file = e.target.files[0];
         if (file) loadARFile(file);
