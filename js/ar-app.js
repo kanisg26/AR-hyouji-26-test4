@@ -294,12 +294,15 @@
           startFallbackMode();
         }
         // ★ dom-overlay解除後のUI応答性を確保
+        // canvasのz-indexを再設定してarUIの下に確実に配置
+        canvas.style.zIndex = '1';
         var arUI = document.getElementById('arUI');
         if (arUI) {
+          // pointer-eventsを一時的にautoにしてブラウザの内部状態をリフレッシュ
           arUI.style.pointerEvents = 'auto';
-          requestAnimationFrame(function() {
-            arUI.style.pointerEvents = 'none';
-          });
+          setTimeout(function() {
+            arUI.style.pointerEvents = 'none'; // 子要素のpointer-events:autoが効く
+          }, 100);
         }
         // WebXR対応端末でフォールバックに降格した場合、AR再開ボタンを表示
         showRestartARButton();
