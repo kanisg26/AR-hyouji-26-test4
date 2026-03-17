@@ -991,6 +991,14 @@
     btnPipeInfo.classList.toggle('active', showPipeInfo);
     btnPlace.disabled = true;
 
+    // スケール切替ボタンの復帰（通常モデルで自動推定が適用された場合）
+    var btnScaleModeEl = document.getElementById('btnScaleMode');
+    if (btnScaleModeEl && loaded3DModel && scaleMode !== 'auto') {
+      btnScaleModeEl.style.display = '';
+      btnScaleModeEl.textContent = scaleMode === 'realsize' ? '📐 実寸(mm)' : '📐 フィット表示';
+      btnScaleModeEl.classList.toggle('active', scaleMode === 'realsize');
+    }
+
     // 距離スライダーをリセット
     document.getElementById('distanceSlider').value = 0;
     document.getElementById('distanceValue').textContent = '0';
@@ -1620,6 +1628,27 @@
       placedPosition = null;
       excavationState = 0;
 
+      // --- WebXR ARモード: リセット後の平面検知復帰 ---
+      if (xrSession) {
+        // resetGuard: リセットボタンタップがXR selectを即発火するリスクを短時間ガード
+        resetGuard = true;
+        setTimeout(() => { resetGuard = false; }, 100);
+
+        // ARレティクルを再表示可能な状態にリセット
+        if (reticle) {
+          reticle.visible = false;  // onXRFrameが次フレームで再表示する
+        }
+
+        // ARグリッドがシーンに残っている場合は除去（再検知時に再生成される）
+        if (groundGrid) {
+          scene.remove(groundGrid);
+          groundGrid = null;
+        }
+
+        statusText.textContent = '平面を検出中...';
+        console.log('WebXR reset: pipePlaced=false, waiting for hit test');
+      }
+
       pipeInfo.style.display = 'none';
       rotationControl.style.display = 'none';
       distanceControl.style.display = 'none';
@@ -1639,15 +1668,13 @@
       camera.fov = 70;
       camera.updateProjectionMatrix();
 
-      if (fallbackReticle) {
-        scene.remove(fallbackReticle);
-      }
-      fallbackReticle = createFallbackReticle();
-      scene.add(fallbackReticle);
-
-      // WebXRモード時: レティクルを再表示可能にする
-      if (reticle) {
-        reticle.visible = false; // 次のヒットテスト結果で自動的にvisible=trueになる
+      if (!xrSession) {
+        // フォールバックモード時のみレティクルを再生成
+        if (fallbackReticle) {
+          scene.remove(fallbackReticle);
+        }
+        fallbackReticle = createFallbackReticle();
+        scene.add(fallbackReticle);
       }
 
       // オーバーレイのファイルステータスをクリア
@@ -1664,9 +1691,14 @@
         btnScaleModeEl.classList.remove('active');
       }
 
-      statusText.textContent = useDeviceOrientation
-        ? 'スマホを動かして位置を合わせてタップ'
-        : '緑の円を所定位置に合わせてタップ';
+      // WebXRモードとフォールバックモードで適切なメッセージを表示
+      if (xrSession) {
+        statusText.textContent = '平面を検出中...';
+      } else {
+        statusText.textContent = useDeviceOrientation
+          ? 'スマホを動かして位置を合わせてタップ'
+          : '緑の円を所定位置に合わせてタップ';
+      }
     });
 
     // フォールバック: 画面タップで設置
