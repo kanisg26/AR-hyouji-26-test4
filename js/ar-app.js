@@ -1299,6 +1299,21 @@
     const center = box.getCenter(new THREE.Vector3());
 
     console.log('Model bounds:', { size, center });
+    // ─── 一時デバッグ表示（症状①真因確定後に削除） ──────────
+    {
+      const sizeInfo = `bbox: ${size.x.toFixed(3)} × ${size.y.toFixed(3)} × ${size.z.toFixed(3)} m`;
+      const flagInfo = `pipeVisualizer=${isPipeModel}`;
+      const dbgId = '__dbg_model_bounds__';
+      const old = document.getElementById(dbgId);
+      if (old) old.remove();
+      const dbg = document.createElement('div');
+      dbg.id = dbgId;
+      dbg.style.cssText = 'position:fixed;top:60px;right:10px;background:rgba(0,0,0,0.88);color:#0f0;padding:10px 14px;font:13px monospace;line-height:1.6;z-index:99999;border:2px solid #0f0;border-radius:4px;max-width:80vw;white-space:pre;';
+      dbg.textContent = `${sizeInfo}\n${flagInfo}\n[tap to dismiss]`;
+      dbg.onclick = () => dbg.remove();
+      document.body.appendChild(dbg);
+    }
+    // ────────────────────────────────────────────────
 
     if (isPipeModel) {
       // ─── 管路モデル ───────────────────────────────────────
