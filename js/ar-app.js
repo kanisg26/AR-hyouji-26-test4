@@ -1032,9 +1032,13 @@
   }
 
   // 掘削可視化を一元化（btnExcavation 状態 + GLB埋め込み掘削メッシュ）
+  // GLB埋め込み掘削がある場合は標準掘削（手続生成）を非表示化して重複表示回避（ADR-023 追補）
   function applyExcavationVisibility() {
     const visible = excavationState > 0;
-    if (excavationGroup) excavationGroup.visible = visible;
+    const hasGlbExcavation = glbExcavationMeshes.length > 0;
+    if (excavationGroup) {
+      excavationGroup.visible = visible && !hasGlbExcavation;
+    }
     glbExcavationMeshes.forEach(m => { m.visible = visible; });
   }
 
