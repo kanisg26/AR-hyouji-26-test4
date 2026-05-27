@@ -74,6 +74,15 @@
         <label>前後移動: <span id="distanceValue">0</span>mm</label>
         <input type="range" id="distanceSlider" min="-5000" max="5000" value="0" step="100">
       </div>
+      <!-- 症状①②暫定対応UI（CP_manual_adjust / ADR-022） -->
+      <div id="pipeScaleControl" class="panel" style="display:none;">
+        <label>配管スケール: ×<span id="pipeScaleValue">1.00</span></label>
+        <input type="range" id="pipeScaleSlider" min="0.3" max="3.0" value="1.0" step="0.05">
+      </div>
+      <div id="gridYControl" class="panel">
+        <label>グリッドY: <span id="gridYValue">0.00</span>m</label>
+        <input type="range" id="gridYSlider" min="-2.0" max="1.0" value="0" step="0.05">
+      </div>
       <button id="btnScaleBar" class="btn-secondary" style="display:none;">📏 スケールバー</button>
       <button id="btnScaleMode" class="btn-secondary" style="display:none;">📐 実寸(mm)</button>
     </div>
