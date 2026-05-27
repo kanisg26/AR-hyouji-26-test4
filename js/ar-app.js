@@ -36,6 +36,7 @@
   // --- Cleanup tracking ---
   let placedMarkers = [];
   let groundGrid = null;
+  let groundGridYOffset = 0; // グリッドY手動調整値（症状②暫定対応 / CP_manual_adjust / ADR-022）
 
   // --- Pinch Zoom ---
   let lastPinchDist = 0;
@@ -71,6 +72,13 @@
   const btnPipeInfo = document.getElementById('btnPipeInfo');
   const rightPanel = document.getElementById('rightPanel');
   const distanceControl = document.getElementById('distanceControl');
+  // 症状①②暫定対応UI（CP_manual_adjust / ADR-022）
+  const pipeScaleControl = document.getElementById('pipeScaleControl');
+  const pipeScaleSlider  = document.getElementById('pipeScaleSlider');
+  const pipeScaleValue   = document.getElementById('pipeScaleValue');
+  const gridYControl     = document.getElementById('gridYControl');
+  const gridYSlider      = document.getElementById('gridYSlider');
+  const gridYValue       = document.getElementById('gridYValue');
   const noARMessage = document.getElementById('noARMessage');
   const arStartOverlay = document.getElementById('arStartOverlay');
 
@@ -226,6 +234,7 @@
     pipeInfo.style.display = 'none';
     rotationControl.style.display = 'none';
     distanceControl.style.display = 'none';
+    if (pipeScaleControl) pipeScaleControl.style.display = 'none';
     excavationPanel.style.display = 'none';
     btnPlace.disabled = false;
     document.getElementById('rotationSlider').value = 0;
@@ -425,6 +434,7 @@
       rightPanel.style.display = showPipeInfo ? 'flex' : 'none';
       rotationControl.style.display = 'block';
       distanceControl.style.display = 'block';
+      if (pipeScaleControl) pipeScaleControl.style.display = 'block';
       btnPlace.disabled = true;
     } else {
       statusText.textContent = '緑の円を所定位置に合わせてタップ';
@@ -437,6 +447,7 @@
     groundGrid = new THREE.GridHelper(20, 20, 0x004444, 0x003333);
     groundGrid.material.transparent = true;
     groundGrid.material.opacity = 0.3;
+    groundGrid.position.y = groundGridYOffset; // CP_manual_adjust / ADR-022
     scene.add(groundGrid);
   }
 
@@ -769,6 +780,7 @@
             groundGrid.material.transparent = true;
             groundGrid.material.opacity = 0.3;
             groundGrid.material.depthWrite = false;
+            groundGrid.position.y = groundGridYOffset; // CP_manual_adjust / ADR-022
             scene.add(groundGrid);
           }
           var reticlePos = new THREE.Vector3();
@@ -959,6 +971,10 @@
       pipeGroup = PipeModelFactory.createPipeAssembly(currentPipeData);
       pipeGroup.position.copy(position);
     }
+    // 暫定対応: 配管スケール手動値を反映（CP_manual_adjust / ADR-022）
+    if (pipeScaleSlider) {
+      pipeGroup.scale.setScalar(parseFloat(pipeScaleSlider.value));
+    }
     scene.add(pipeGroup);
     // ─── 一時診断パッチ（症状① 半スケール現象の発生箇所特定後に削除） ──────────
     {
@@ -1004,6 +1020,7 @@
       groundGrid.material.transparent = true;
       groundGrid.material.opacity = 0.3;
       groundGrid.material.depthWrite = false;
+      groundGrid.position.y = groundGridYOffset; // CP_manual_adjust / ADR-022
       scene.add(groundGrid);
     }
     groundGrid.position.set(position.x, position.y, position.z);
@@ -1026,6 +1043,7 @@
     pipeInfo.style.display = showPipeInfo ? 'block' : 'none';
     rotationControl.style.display = 'block';
     distanceControl.style.display = 'block';
+    if (pipeScaleControl) pipeScaleControl.style.display = 'block';
     btnPipeInfo.classList.toggle('active', showPipeInfo);
     btnPlace.disabled = true;
 
@@ -1589,6 +1607,29 @@
       }
     });
 
+    // 配管スケール手動調整（症状①暫定対応 / CP_manual_adjust / ADR-022）
+    if (pipeScaleSlider) {
+      pipeScaleSlider.addEventListener('input', () => {
+        const s = parseFloat(pipeScaleSlider.value);
+        pipeScaleValue.textContent = s.toFixed(2);
+        if (pipeGroup) {
+          pipeGroup.scale.setScalar(s);
+        }
+      });
+    }
+
+    // グリッドY手動調整（症状②暫定対応 / CP_manual_adjust / ADR-022）
+    if (gridYSlider) {
+      gridYSlider.addEventListener('input', () => {
+        const y = parseFloat(gridYSlider.value);
+        gridYValue.textContent = y.toFixed(2);
+        groundGridYOffset = y;
+        if (groundGrid) {
+          groundGrid.position.y = y;
+        }
+      });
+    }
+
     // 掘削表示 3段階トグル: OFF → AR表示のみ → AR+パラメータ → OFF
     btnExcavation.addEventListener('click', () => {
       excavationState = (excavationState + 1) % 3;
@@ -1729,6 +1770,7 @@
       pipeInfo.style.display = 'none';
       rotationControl.style.display = 'none';
       distanceControl.style.display = 'none';
+      if (pipeScaleControl) pipeScaleControl.style.display = 'none';
       excavationPanel.style.display = 'none';
       rightPanel.style.display = 'flex';
       btnExcavation.classList.remove('active');
@@ -1740,6 +1782,12 @@
       document.getElementById('rotationValue').textContent = '0';
       document.getElementById('distanceSlider').value = 0;
       document.getElementById('distanceValue').textContent = '0';
+      // 配管スケール: 1.0に戻す（症状①暫定対応 / CP_manual_adjust / ADR-022）
+      // ※ グリッドYは「ユーザーが床に合わせた状態」を保持する設計のためリセットしない
+      if (pipeScaleSlider) {
+        pipeScaleSlider.value = '1.0';
+        pipeScaleValue.textContent = '1.00';
+      }
 
       // ジャイロモード時はFOVもリセット
       camera.fov = 70;
