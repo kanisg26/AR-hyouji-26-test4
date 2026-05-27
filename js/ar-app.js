@@ -971,6 +971,7 @@
       pipeGroup = PipeModelFactory.createPipeAssembly(currentPipeData);
       pipeGroup.position.copy(position);
     }
+    pipeGroup.position.y += groundGridYOffset; // CP_floor_height_correction
     // 暫定対応: 配管スケール手動値を反映（CP_manual_adjust / ADR-022）
     if (pipeScaleSlider) {
       pipeGroup.scale.setScalar(parseFloat(pipeScaleSlider.value));
@@ -1005,12 +1006,14 @@
 
     excavationGroup = ExcavationManager.create(SAMPLE_PIPE_DATA.excavation);
     excavationGroup.position.copy(position);
+    excavationGroup.position.y += groundGridYOffset; // CP_floor_height_correction
     excavationGroup.visible = excavationState > 0;
     scene.add(excavationGroup);
 
     const marker = PipeModelFactory.createGroundMarker();
     marker.position.copy(position);
     marker.position.y += 0.001;
+    marker.position.y += groundGridYOffset; // CP_floor_height_correction
     scene.add(marker);
     placedMarkers.push(marker);
 
@@ -1618,14 +1621,24 @@
       });
     }
 
-    // グリッドY手動調整（症状②暫定対応 / CP_manual_adjust / ADR-022）
+    // 床高さ補正手動調整（症状②暫定対応 / CP_manual_adjust + CP_floor_height_correction / ADR-022）
+    // グリッドに加え、配管・掘削・マーカーも delta だけ Y 連動
     if (gridYSlider) {
       gridYSlider.addEventListener('input', () => {
         const y = parseFloat(gridYSlider.value);
-        gridYValue.textContent = y.toFixed(2);
+        const delta = y - groundGridYOffset; // 前回値からの差分（更新前に算出）
         groundGridYOffset = y;
+        gridYValue.textContent = y.toFixed(2);
+
+        // グリッドへの適用（既存）
         if (groundGrid) {
           groundGrid.position.y = y;
+        }
+        // AR配置オブジェクトを delta だけ Y 移動（CP_floor_height_correction）
+        if (pipeGroup) pipeGroup.position.y += delta;
+        if (excavationGroup) excavationGroup.position.y += delta;
+        if (Array.isArray(placedMarkers)) {
+          placedMarkers.forEach(m => { m.position.y += delta; });
         }
       });
     }
