@@ -38,6 +38,12 @@
   let groundGrid = null;
   let groundGridYOffset = 0; // グリッドY手動調整値（症状②暫定対応 / CP_manual_adjust / ADR-022）
 
+  // --- GLB内部メッシュ分類（CP_glb_layer_control / ADR-023） ---
+  let glbExcavationMeshes = [];
+  let glbPipeMeshes = [];
+  let glbCenterlineMeshes = [];
+  let pipeDisplayMode = '3d'; // '3d' | 'centerline'
+
   // --- Pinch Zoom ---
   let lastPinchDist = 0;
 
@@ -79,6 +85,10 @@
   const gridYControl     = document.getElementById('gridYControl');
   const gridYSlider      = document.getElementById('gridYSlider');
   const gridYValue       = document.getElementById('gridYValue');
+  // GLB内部メッシュ表示モード切替UI（CP_glb_layer_control / ADR-023）
+  const displayModeControl  = document.getElementById('displayModeControl');
+  const btnMode3D           = document.getElementById('btnMode3D');
+  const btnModeCenterline   = document.getElementById('btnModeCenterline');
   const noARMessage = document.getElementById('noARMessage');
   const arStartOverlay = document.getElementById('arStartOverlay');
 
@@ -944,6 +954,10 @@
       pipeGroup.position.copy(pos);
       pipeGroup.rotation.y = rot;
       scene.add(pipeGroup);
+      // GLB内部メッシュ分類＋表示モード＋掘削可視化（CP_glb_layer_control / ADR-023）
+      categorizePipeGroupChildren();
+      applyPipeDisplayMode();
+      applyExcavationVisibility();
     }
 
     // ボタン表示更新
@@ -954,6 +968,74 @@
     }
 
     console.log('Scale mode:', scaleMode, 'rawMaxDim:', modelRawMaxDim);
+  }
+
+  // =========================================================
+  //  GLB Layer Control (CP_glb_layer_control / ADR-023)
+  // =========================================================
+  // GLB子メッシュを名前で分類
+  function categorizePipeGroupChildren() {
+    glbExcavationMeshes = [];
+    glbPipeMeshes = [];
+    glbCenterlineMeshes = [];
+
+    if (!pipeGroup) return;
+
+    pipeGroup.traverse((child) => {
+      if (!child.isMesh) return;
+      const name = (child.name || '').toLowerCase();
+      if (name.includes('excavation')) {
+        glbExcavationMeshes.push(child);
+      } else if (
+        name.includes('centerline') ||
+        name.includes('linear') ||
+        name.includes('wire') ||
+        name.includes('inflection')
+      ) {
+        glbCenterlineMeshes.push(child);
+      } else {
+        glbPipeMeshes.push(child);
+      }
+    });
+
+    // 診断ログ（パターン合致確認用・本CPでは残置 / 別CPで撤去予定）
+    console.log('[GLB] Categorized:', {
+      excavation: glbExcavationMeshes.length,
+      pipe3d: glbPipeMeshes.length,
+      centerline: glbCenterlineMeshes.length,
+    });
+    pipeGroup.traverse((c) => {
+      if (c.isMesh) console.log('[GLB mesh]', c.name || '(unnamed)');
+    });
+  }
+
+  // 3D / 線形 切替適用
+  function applyPipeDisplayMode() {
+    // 自動切替: 片方しかない場合
+    if (glbPipeMeshes.length === 0 && glbCenterlineMeshes.length > 0) {
+      pipeDisplayMode = 'centerline';
+    } else if (glbPipeMeshes.length > 0 && glbCenterlineMeshes.length === 0) {
+      pipeDisplayMode = '3d';
+    }
+    // else: ユーザー選択を維持（デフォルト'3d'）
+
+    glbPipeMeshes.forEach(m => { m.visible = (pipeDisplayMode === '3d'); });
+    glbCenterlineMeshes.forEach(m => { m.visible = (pipeDisplayMode === 'centerline'); });
+
+    // UI更新
+    if (btnMode3D) btnMode3D.classList.toggle('active', pipeDisplayMode === '3d');
+    if (btnModeCenterline) btnModeCenterline.classList.toggle('active', pipeDisplayMode === 'centerline');
+    if (displayModeControl) {
+      const showControl = glbPipeMeshes.length > 0 && glbCenterlineMeshes.length > 0;
+      displayModeControl.style.display = showControl ? 'block' : 'none';
+    }
+  }
+
+  // 掘削可視化を一元化（btnExcavation 状態 + GLB埋め込み掘削メッシュ）
+  function applyExcavationVisibility() {
+    const visible = excavationState > 0;
+    if (excavationGroup) excavationGroup.visible = visible;
+    glbExcavationMeshes.forEach(m => { m.visible = visible; });
   }
 
   // =========================================================
@@ -977,6 +1059,10 @@
       pipeGroup.scale.setScalar(parseFloat(pipeScaleSlider.value));
     }
     scene.add(pipeGroup);
+    // GLB内部メッシュ分類＋表示モード＋掘削可視化（CP_glb_layer_control / ADR-023）
+    categorizePipeGroupChildren();
+    applyPipeDisplayMode();
+    applyExcavationVisibility();
     // ─── 一時診断パッチ（症状① 半スケール現象の発生箇所特定後に削除） ──────────
     {
       const postBox = new THREE.Box3().setFromObject(pipeGroup);
@@ -1486,6 +1572,10 @@
       pipeGroup.position.copy(pos);
       pipeGroup.rotation.y = rot;
       scene.add(pipeGroup);
+      // GLB内部メッシュ分類＋表示モード＋掘削可視化（CP_glb_layer_control / ADR-023）
+      categorizePipeGroupChildren();
+      applyPipeDisplayMode();
+      applyExcavationVisibility();
 
       // 掘削領域を再作成（モデル置換時も維持）
       excavationGroup = ExcavationManager.create(ExcavationManager.getParams());
@@ -1526,6 +1616,11 @@
       pipeGroup.position.copy(pos);
       pipeGroup.rotation.y = rot;
       scene.add(pipeGroup);
+      // GLB内部メッシュ分類＋表示モード＋掘削可視化（CP_glb_layer_control / ADR-023）
+      // JSONデータ駆動パスではmesh名一致なしのためすべて pipe3d 扱い（no-op に近い）
+      categorizePipeGroupChildren();
+      applyPipeDisplayMode();
+      applyExcavationVisibility();
 
       placedPosition = pos.clone();
       document.getElementById('distanceSlider').value = 0;
@@ -1621,6 +1716,20 @@
       });
     }
 
+    // 表示モード切替: 3D / 線形（CP_glb_layer_control / ADR-023）
+    if (btnMode3D) {
+      btnMode3D.addEventListener('click', () => {
+        pipeDisplayMode = '3d';
+        applyPipeDisplayMode();
+      });
+    }
+    if (btnModeCenterline) {
+      btnModeCenterline.addEventListener('click', () => {
+        pipeDisplayMode = 'centerline';
+        applyPipeDisplayMode();
+      });
+    }
+
     // 床高さ補正手動調整（症状②暫定対応 / CP_manual_adjust + CP_floor_height_correction / ADR-022）
     // グリッドに加え、配管・掘削・マーカーも delta だけ Y 連動
     if (gridYSlider) {
@@ -1648,24 +1757,23 @@
       excavationState = (excavationState + 1) % 3;
       switch (excavationState) {
         case 0: // OFF
-          if (excavationGroup) excavationGroup.visible = false;
           excavationPanel.style.display = 'none';
           btnExcavation.classList.remove('active');
           btnExcavation.textContent = '掘削表示';
           break;
         case 1: // AR表示のみ
-          if (excavationGroup) excavationGroup.visible = true;
           excavationPanel.style.display = 'none';
           btnExcavation.classList.add('active');
           btnExcavation.textContent = '掘削:AR';
           break;
         case 2: // AR + パラメータ
-          if (excavationGroup) excavationGroup.visible = true;
           excavationPanel.style.display = 'block';
           btnExcavation.classList.add('active');
           btnExcavation.textContent = '掘削:詳細';
           break;
       }
+      // 可視化を一元化: excavationGroup + GLB埋め込み掘削メッシュ群（CP_glb_layer_control / ADR-023）
+      applyExcavationVisibility();
     });
 
     setupExcavationSliders();
@@ -1784,6 +1892,7 @@
       rotationControl.style.display = 'none';
       distanceControl.style.display = 'none';
       if (pipeScaleControl) pipeScaleControl.style.display = 'none';
+      if (displayModeControl) displayModeControl.style.display = 'none'; // CP_glb_layer_control: 次回GLB読込で再判定
       excavationPanel.style.display = 'none';
       rightPanel.style.display = 'flex';
       btnExcavation.classList.remove('active');
