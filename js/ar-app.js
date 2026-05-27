@@ -948,6 +948,32 @@
       pipeGroup.position.copy(position);
     }
     scene.add(pipeGroup);
+    // ─── 一時診断パッチ（症状① 半スケール現象の発生箇所特定後に削除） ──────────
+    {
+      const postBox = new THREE.Box3().setFromObject(pipeGroup);
+      const postSize = postBox.getSize(new THREE.Vector3());
+      const sizeInfo = `POST bbox: ${postSize.x.toFixed(3)} × ${postSize.y.toFixed(3)} × ${postSize.z.toFixed(3)} m`;
+      const scaleInfo = `pipeGroup.scale: ${pipeGroup.scale.x.toFixed(3)}, ${pipeGroup.scale.y.toFixed(3)}, ${pipeGroup.scale.z.toFixed(3)}`;
+      // loaded3DModelのスケールも記録（cloneの影響確認用）
+      let modelScaleInfo = 'loaded3DModel.scale: N/A';
+      if (loaded3DModel) {
+        modelScaleInfo = `loaded3DModel.scale: ${loaded3DModel.scale.x.toFixed(3)}, ${loaded3DModel.scale.y.toFixed(3)}, ${loaded3DModel.scale.z.toFixed(3)}`;
+      }
+      console.log(sizeInfo);
+      console.log(scaleInfo);
+      console.log(modelScaleInfo);
+
+      const dbgId = '__dbg_post_bbox__';
+      const old = document.getElementById(dbgId);
+      if (old) old.remove();
+      const dbg = document.createElement('div');
+      dbg.id = dbgId;
+      dbg.style.cssText = 'position:fixed;top:170px;right:10px;background:rgba(0,0,0,0.88);color:#fc0;padding:10px 14px;font:13px monospace;line-height:1.6;z-index:99999;border:2px solid #fc0;border-radius:4px;max-width:80vw;white-space:pre;';
+      dbg.textContent = `${sizeInfo}\n${scaleInfo}\n${modelScaleInfo}\n[tap to dismiss]`;
+      dbg.onclick = () => dbg.remove();
+      document.body.appendChild(dbg);
+    }
+    // ────────────────────────────────────────────────────────
 
     excavationGroup = ExcavationManager.create(SAMPLE_PIPE_DATA.excavation);
     excavationGroup.position.copy(position);
