@@ -894,6 +894,7 @@
           placedPosition.y,
           placedPosition.z + 0.7
         );
+        scaleBarGroup.position.y += groundGridYOffset; // CP_scalebar_floor_check / ADR-022 追補
         // パイプの回転に合わせる
         if (pipeGroup) {
           scaleBarGroup.rotation.y = pipeGroup.rotation.y;
@@ -1753,6 +1754,8 @@
         if (Array.isArray(placedMarkers)) {
           placedMarkers.forEach(m => { m.position.y += delta; });
         }
+        // スケールバーも連動（CP_scalebar_floor_check / ADR-022 追補）
+        if (scaleBarGroup) scaleBarGroup.position.y += delta;
       });
     }
 
