@@ -258,7 +258,7 @@
       if (fileLoadLabel) fileLoadLabel.style.display = 'none';
 
       const sessionOptions = {
-        optionalFeatures: ['hit-test', 'dom-overlay'],
+        optionalFeatures: ['hit-test', 'dom-overlay', 'local-floor'],
       };
       const arUI = document.getElementById('arUI');
       if (arUI) {
@@ -269,10 +269,22 @@
       xrSession = await navigator.xr.requestSession('immersive-ar', sessionOptions);
 
 
-      renderer.xr.setReferenceSpaceType('local');
-      await renderer.xr.setSession(xrSession);
+      // ─── 参照空間: local-floor 優先・local フォールバック（CP_local_floor / ADR-021）──────
+      // local-floor: Y=0 = 床面（端末が床検出可能な場合に利用可、グリッドが実際の床に一致）
+      // local:       Y=0 = セッション開始時の視聴者頭の高さ（旧挙動・フォールバック）
+      let refSpaceType = 'local';
+      try {
+        xrRefSpace = await xrSession.requestReferenceSpace('local-floor');
+        refSpaceType = 'local-floor';
+        console.log('[XR] Using local-floor reference space (Y=0 at floor)');
+      } catch (err) {
+        console.warn('[XR] local-floor unavailable, falling back to local (Y=0 at head):', err);
+        xrRefSpace = await xrSession.requestReferenceSpace('local');
+      }
 
-      xrRefSpace = await xrSession.requestReferenceSpace('local');
+      renderer.xr.setReferenceSpaceType(refSpaceType);
+      await renderer.xr.setSession(xrSession);
+      // ──────────────────────────────────────────────────────────────────
 
       try {
         const viewerSpace = await xrSession.requestReferenceSpace('viewer');
